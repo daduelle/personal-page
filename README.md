@@ -6,6 +6,9 @@
   <img src="https://img.shields.io/badge/License-MIT-22c55e?style=flat-square" alt="MIT License" />
 </p>
 
+<img width="1824" height="2336" alt="readme-manga-generator" src="https://github.com/user-attachments/assets/0af8b725-3655-4277-a2b3-4ccf70f33105" />
+
+
 # MangaREADME Generator
 
 > Turn your GitHub profile into a full manga page -- powered by **your own** AI backend.
@@ -54,14 +57,23 @@ MangaREADME Generator is an open-source web app that transforms profile data int
 </p>
 
 <p align="center">
-  <img src="images/yourinfo.png" alt="Input step" width="240" />
-  <img src="images/customize.png" alt="Customize step" width="240" />
-  <img src="images/image.png" alt="Generate step" width="240" />
+  <img src="images/yourinfo.png" alt="Input step" alt="Input step" width="760" />
 </p>
 
 <p align="center">
-  <img src="images/bubble-edit.png" alt="Bubble editor" width="360" />
-  <img src="images/export.png" alt="Export step" width="360" />
+  <img src="images/customize.png" alt="Customize step" alt="Customize step" width="760" />
+</p>
+
+<p align="center">
+  <img src="images/image.png" alt="Generate step" width="760" />
+</p>
+
+<p align="center">
+  <img src="images/export.png" alt="Export step" width="760" />
+</p>
+
+<p align="center">
+  <img src="images/bubble-edit.png" alt="Bubble editor" width="760" />
 </p>
 
 ---
