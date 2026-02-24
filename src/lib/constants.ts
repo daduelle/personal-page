@@ -1,99 +1,26 @@
-import type { ModelConfig, GenerationConfig, MangaStyle, GenerationMode } from '@/types';
+import type { GenerationConfig, MangaStyle, ProviderConfig } from '@/types';
 
 // ============================================================
 // Application Constants
 // ============================================================
 
 export const APP_NAME = 'MangaREADME Generator';
-export const APP_VERSION = '0.1.0';
+export const APP_VERSION = '0.2.0';
 export const APP_DESCRIPTION =
-  'Generate manga-style README images for GitHub using AI';
+  'Generate manga-style README images for GitHub using AI — Bring Your Own Backend';
 
 // ============================================================
-// Generation Mode Defaults
+// Provider Defaults
 // ============================================================
 
-export const DEFAULT_GENERATION_MODE: GenerationMode = 'local';
-
-// ============================================================
-// Model Registry
-// ============================================================
-
-/**
- * Local models — downloaded once, run entirely in-browser via Transformers.js.
- * Maximum privacy: no data leaves the user's machine after the initial download.
- */
-export const LOCAL_MODELS: ModelConfig[] = [
-  {
-    id: 'onnx-community/stable-diffusion-3.5-medium',
-    name: 'SD 3.5 Medium (Local)',
-    description: 'Community ONNX model for in-browser generation (~2.8 GB download)',
-    isDefault: true,
-    mode: 'local',
-    size: '~2.8 GB',
-  },
-  {
-    id: 'Xenova/stable-diffusion-v1-5',
-    name: 'SD 1.5 (Local)',
-    description: 'Classic SD 1.5 converted to ONNX (~1.7 GB download)',
-    isDefault: false,
-    mode: 'local',
-    size: '~1.7 GB',
-  },
-];
-
-/**
- * API models — no downloads, runs on HuggingFace Inference API servers.
- * Requires internet; optional token for higher rate limits.
- */
-export const API_MODELS: ModelConfig[] = [
-  {
-    id: 'stabilityai/stable-diffusion-xl-base-1.0',
-    name: 'SDXL 1.0 (API)',
-    description: 'High quality, detailed images (recommended)',
-    isDefault: true,
-    mode: 'api',
-    defaultSteps: 30,
-    defaultCfg: 7.5,
-    maxResolution: 1024,
-  },
-  {
-    id: 'runwayml/stable-diffusion-v1-5',
-    name: 'Stable Diffusion 1.5 (API)',
-    description: 'Classic model, fast and reliable',
-    isDefault: false,
-    mode: 'api',
-    defaultSteps: 25,
-    defaultCfg: 7.5,
-    maxResolution: 768,
-  },
-  {
-    id: 'stabilityai/stable-diffusion-2-1',
-    name: 'Stable Diffusion 2.1 (API)',
-    description: 'Improved quality over 1.5, good for detailed scenes',
-    isDefault: false,
-    mode: 'api',
-    defaultSteps: 30,
-    defaultCfg: 7.5,
-    maxResolution: 768,
-  },
-];
-
-/** All models combined */
-export const AVAILABLE_MODELS: ModelConfig[] = [...LOCAL_MODELS, ...API_MODELS];
-
-/** Get the default model ID for a given mode */
-export function getDefaultModelId(mode: GenerationMode): string {
-  const models = mode === 'local' ? LOCAL_MODELS : API_MODELS;
-  return models.find((m) => m.isDefault)?.id ?? models[0].id;
-}
-
-/** Get models filtered by generation mode */
-export function getModelsForMode(mode: GenerationMode): ModelConfig[] {
-  return mode === 'local' ? LOCAL_MODELS : API_MODELS;
-}
-
-export const DEFAULT_MODEL_ID = getDefaultModelId(DEFAULT_GENERATION_MODE);
+/** Default provider configuration (local SD) */
+export const DEFAULT_PROVIDER_CONFIG: ProviderConfig = {
+  type: 'local-sd',
+  baseUrl: 'http://127.0.0.1:7860',
+  apiKey: '',
+  selectedModel: '',
+  loras: [],
+};
 
 // ============================================================
 // Generation Defaults

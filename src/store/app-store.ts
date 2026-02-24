@@ -7,12 +7,12 @@ import type {
   MangaPanel,
   GenerationConfig,
   GenerationJob,
-  GenerationMode,
   GenerationStatus,
-  ModelLoadProgress,
+  ProviderConfig,
+  ProviderStatus,
   WebGPUStatus,
 } from '@/types';
-import { DEFAULT_GENERATION_CONFIG, DEFAULT_MODEL_ID, DEFAULT_GENERATION_MODE, getDefaultModelId } from '@/lib/constants';
+import { DEFAULT_GENERATION_CONFIG, DEFAULT_PROVIDER_CONFIG } from '@/lib/constants';
 
 // ============================================================
 // Application Store (Zustand)
@@ -39,11 +39,10 @@ interface AppActions {
   removeJob: (jobId: string) => void;
   clearJobs: () => void;
 
-  // Mode & Model
-  setGenerationMode: (mode: GenerationMode) => void;
-  setSelectedModel: (modelId: string) => void;
+  // Provider (BYOB)
+  setProviderConfig: (config: Partial<ProviderConfig>) => void;
+  setProviderStatus: (status: Partial<ProviderStatus>) => void;
   setGenerationStatus: (status: GenerationStatus) => void;
-  setModelStatus: (status: ModelLoadProgress) => void;
 
   // WebGPU
   setWebGPUStatus: (status: WebGPUStatus) => void;
@@ -73,16 +72,17 @@ const INITIAL_STATE: AppState = {
   panels: [],
   generationConfig: DEFAULT_GENERATION_CONFIG,
   jobs: [],
-  generationMode: DEFAULT_GENERATION_MODE,
-  selectedModel: DEFAULT_MODEL_ID,
+  providerConfig: DEFAULT_PROVIDER_CONFIG,
+  providerStatus: {
+    connected: false,
+    checking: false,
+    availableModels: [],
+    availableLoras: [],
+  },
   generationStatus: {
     status: 'idle',
     currentPanel: 0,
     totalPanels: 0,
-  },
-  modelStatus: {
-    status: 'idle',
-    progress: 0,
   },
   webgpuStatus: {
     supported: false,
@@ -156,18 +156,19 @@ export const useAppStore = create<AppState & AppActions>((set) => ({
   clearJobs: () =>
     set({ jobs: [] }),
 
-  // ---- Mode & Model ----
-  setGenerationMode: (mode) =>
-    set({ generationMode: mode, selectedModel: getDefaultModelId(mode) }),
+  // ---- Provider (BYOB) ----
+  setProviderConfig: (config) =>
+    set((state) => ({
+      providerConfig: { ...state.providerConfig, ...config },
+    })),
+
+  setProviderStatus: (status) =>
+    set((state) => ({
+      providerStatus: { ...state.providerStatus, ...status },
+    })),
 
   setGenerationStatus: (generationStatus) =>
     set({ generationStatus }),
-
-  setSelectedModel: (selectedModel) =>
-    set({ selectedModel }),
-
-  setModelStatus: (modelStatus) =>
-    set({ modelStatus }),
 
   // ---- WebGPU ----
   setWebGPUStatus: (webgpuStatus) =>

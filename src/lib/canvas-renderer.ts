@@ -72,9 +72,16 @@ export function renderMangaPage(
       drawPanelBorder(ctx, panel);
     }
 
-    // Draw speech bubble
-    if (showBubbles && panel.speechBubble) {
-      drawSpeechBubble(ctx, panel, panel.speechBubble);
+    // Draw speech bubbles (new multi-bubble system)
+    if (showBubbles) {
+      if (panel.speechBubbles && panel.speechBubbles.length > 0) {
+        for (const bubble of panel.speechBubbles) {
+          drawSpeechBubble(ctx, panel, bubble);
+        }
+      } else if (panel.speechBubble) {
+        // legacy single-bubble fallback
+        drawSpeechBubble(ctx, panel, panel.speechBubble);
+      }
     }
 
     ctx.restore();
@@ -391,18 +398,31 @@ export function drawSpeechBubble(
 ): void {
   const absX = panel.x + bubble.position.x * panel.width;
   const absY = panel.y + bubble.position.y * panel.height;
-  const maxW = bubble.maxWidth ?? panel.width * 0.4;
   const fontSize = bubble.fontSize ?? CANVAS_DEFAULTS.bubbleFontSize;
   const padding = CANVAS_DEFAULTS.bubblePadding;
 
-  // Measure text
-  ctx.font = `${bubble.type === 'shout' ? 'bold ' : ''}${fontSize}px ${CANVAS_DEFAULTS.bubbleFontFamily}`;
-  const lines = wrapText(ctx, bubble.text, maxW - padding * 2);
-  const textW = Math.min(
-    maxW,
-    Math.max(...lines.map((l) => ctx.measureText(l).width)) + padding * 2,
-  );
-  const textH = lines.length * (fontSize * 1.3) + padding * 2;
+  // Determine bubble dimensions
+  let textW: number;
+  let textH: number;
+  let lines: string[];
+
+  if (bubble.bubbleWidth !== undefined && bubble.bubbleHeight !== undefined) {
+    // New normalized system: use exact dimensions
+    textW = bubble.bubbleWidth * panel.width;
+    textH = bubble.bubbleHeight * panel.height;
+    ctx.font = `${bubble.type === 'shout' ? 'bold ' : ''}${fontSize}px ${CANVAS_DEFAULTS.bubbleFontFamily}`;
+    lines = wrapText(ctx, bubble.text, textW - padding * 2);
+  } else {
+    // Legacy maxWidth system
+    const maxW = bubble.maxWidth ?? panel.width * 0.4;
+    ctx.font = `${bubble.type === 'shout' ? 'bold ' : ''}${fontSize}px ${CANVAS_DEFAULTS.bubbleFontFamily}`;
+    lines = wrapText(ctx, bubble.text, maxW - padding * 2);
+    textW = Math.min(
+      maxW,
+      Math.max(...lines.map((l) => ctx.measureText(l).width)) + padding * 2,
+    );
+    textH = lines.length * (fontSize * 1.3) + padding * 2;
+  }
 
   const bx = absX - textW / 2;
   const by = absY - textH / 2;
@@ -461,7 +481,7 @@ function drawRoundBubble(
   ctx.stroke();
 
   // Tail
-  if (tailDir) {
+  if (tailDir && tailDir !== 'none') {
     const tailX = tailDir.includes('left') ? x + w * 0.3 : x + w * 0.7;
     const tailY = tailDir.includes('bottom') ? y + h : y;
     const tipY = tailDir.includes('bottom') ? y + h + 15 : y - 15;

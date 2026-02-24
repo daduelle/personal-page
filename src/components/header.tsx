@@ -29,7 +29,7 @@ export function Header() {
               {APP_NAME}
             </h1>
             <p className="text-[10px] font-medium uppercase tracking-widest text-manga-gray-500">
-              100% Client-Side AI • WebGPU Powered
+              BYOB — Bring Your Own Backend
             </p>
           </div>
         </div>

@@ -1,20 +1,23 @@
 'use client';
 
-import { useRef, useEffect, useCallback } from 'react';
+import { useRef, useEffect, useCallback, useState } from 'react';
 import { useAppStore } from '@/store/app-store';
 import { renderMangaPage } from '@/lib/canvas-renderer';
 import { CANVAS_DEFAULTS } from '@/lib/constants';
 import { cn } from '@/lib/utils';
+import { BubbleEditor } from '@/components/bubble-editor';
 
 /**
  * Main manga canvas component — renders panels, effects, and speech bubbles.
- * Uses HTML5 Canvas for high-performance rendering.
+ * In the export step, an "Edit Bubbles" button opens the Canva-like BubbleEditor overlay.
  */
 export function MangaCanvas({ className }: { className?: string }) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const containerRef = useRef<HTMLDivElement>(null);
 
-  const { panels } = useAppStore();
+  const { panels, currentStep } = useAppStore();
+  const [editorOpen, setEditorOpen] = useState(false);
+
+  const isExportStep = currentStep === 'export';
 
   // ---- Render ----
   const render = useCallback(() => {
@@ -56,8 +59,8 @@ export function MangaCanvas({ className }: { className?: string }) {
   }, [panels, render]);
 
   return (
-    <div ref={containerRef} className={cn('relative', className)}>
-      {/* Canvas wrapper with manga page styling */}
+    <div className={cn('relative', className)}>
+      {/* Canvas wrapper */}
       <div
         className={cn(
           'relative mx-auto overflow-hidden rounded-sm',
@@ -75,18 +78,33 @@ export function MangaCanvas({ className }: { className?: string }) {
           style={{ imageRendering: 'auto' }}
         />
 
-        {/* Empty state overlay */}
+        {/* Empty state */}
         {panels.length === 0 && (
           <div className="absolute inset-0 flex flex-col items-center justify-center bg-white/80 backdrop-blur-sm">
             <div className="text-center">
-              <p className="font-manga text-2xl text-manga-gray-300">
-                漫画
-              </p>
+              <p className="font-manga text-2xl text-manga-gray-300">漫画</p>
               <p className="mt-2 text-sm text-manga-gray-400">
                 Fill in your info and choose a layout to see the preview
               </p>
             </div>
           </div>
+        )}
+
+        {/* Edit Bubbles button (export step only) */}
+        {isExportStep && panels.length > 0 && (
+          <button
+            onClick={() => setEditorOpen(true)}
+            className={cn(
+              'absolute bottom-3 right-3 z-10',
+              'flex items-center gap-2 rounded-lg px-3.5 py-2',
+              'bg-[#1a1a2e]/80 text-white text-xs font-bold tracking-wide backdrop-blur-sm',
+              'border border-white/20 shadow-lg',
+              'hover:bg-[#16213e]/95 transition-all',
+            )}
+          >
+            <span className="text-sm">💬</span>
+            Edit Bubbles
+          </button>
         )}
       </div>
 
@@ -98,9 +116,14 @@ export function MangaCanvas({ className }: { className?: string }) {
           </span>
           <span className="text-manga-gray-300">•</span>
           <span className="text-[10px] text-manga-gray-400">
-            {CANVAS_DEFAULTS.width}x{CANVAS_DEFAULTS.height}px
+            {CANVAS_DEFAULTS.width}×{CANVAS_DEFAULTS.height}px
           </span>
         </div>
+      )}
+
+      {/* Canva-like bubble editor modal */}
+      {editorOpen && (
+        <BubbleEditor onClose={() => setEditorOpen(false)} />
       )}
     </div>
   );

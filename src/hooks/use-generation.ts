@@ -3,29 +3,23 @@
 import { useCallback, useRef, useState } from 'react';
 import type { GenerationConfig } from '@/types';
 import { useAppStore } from '@/store/app-store';
+import { createProvider } from '@/lib/providers';
 import { uid } from '@/lib/utils';
-import { generateImage, getStoredToken } from '@/lib/hf-inference';
 import { MANGA_STYLE_PROMPTS } from '@/lib/constants';
-import { useLocalGeneration } from './use-local-generation';
 
 /**
- * Facade hook — delegates to either local (Web Worker) or API (HuggingFace)
- * generation depending on the current `generationMode` in the store.
+ * Generation hook — delegates image creation to whatever provider
+ * the user has configured (local SD, OpenAI, Stability, etc.).
  *
- * Local mode: maximum privacy, runs 100 % in-browser after initial download.
- * API mode:   no downloads needed, sends prompts to HuggingFace servers.
+ * BYOB: the user owns the backend, we just call it.
  */
 export function useGeneration() {
-  // ---- Local generation (worker-based) ----
-  const local = useLocalGeneration();
-
-  // ---- API generation state ----
   const abortRef = useRef<AbortController | null>(null);
-  const [apiLogs, setApiLogs] = useState<string[]>([]);
+  const [logs, setLogs] = useState<string[]>([]);
 
   const {
-    generationMode,
-    selectedModel,
+    providerConfig,
+    providerStatus,
     generationConfig,
     generationStatus,
     setGenerationStatus,
@@ -35,15 +29,29 @@ export function useGeneration() {
     updatePanelImage,
   } = useAppStore();
 
-  const apiLog = useCallback((level: string, message: string) => {
-    setApiLogs((prev) => [...prev, `[${level.toUpperCase()}] ${message}`]);
+  const log = useCallback((level: string, message: string) => {
+    setLogs((prev) => [...prev, `[${level.toUpperCase()}] ${message}`]);
   }, []);
 
-  // ============================================================
-  // API-mode generation (unchanged from current implementation)
-  // ============================================================
+  // ---- Build styled prompt from raw panel prompt ----
+  const buildPromptWithStyle = useCallback(
+    (prompt: string, negativePrompt?: string) => {
+      const style = useAppStore.getState().generationConfig.style;
+      const stylePrompts = MANGA_STYLE_PROMPTS[style];
+      const fullPrompt = `${stylePrompts.prefix} ${prompt} ${stylePrompts.suffix}`;
+      const fullNegative = [
+        negativePrompt ?? useAppStore.getState().generationConfig.negativePrompt ?? '',
+        stylePrompts.negative,
+      ]
+        .filter(Boolean)
+        .join(', ');
+      return { fullPrompt, fullNegative };
+    },
+    [],
+  );
 
-  const apiGenerateForPanel = useCallback(
+  // ---- Generate a single panel ----
+  const generateForPanel = useCallback(
     async (
       panelId: string,
       prompt: string,
@@ -53,14 +61,7 @@ export function useGeneration() {
       const config: GenerationConfig = { ...generationConfig, ...configOverrides };
       const jobId = uid();
 
-      const stylePrompts = MANGA_STYLE_PROMPTS[config.style];
-      const fullPrompt = `${stylePrompts.prefix} ${prompt} ${stylePrompts.suffix}`;
-      const fullNegative = [
-        negativePrompt ?? config.negativePrompt ?? '',
-        stylePrompts.negative,
-      ]
-        .filter(Boolean)
-        .join(', ');
+      const { fullPrompt, fullNegative } = buildPromptWithStyle(prompt, negativePrompt);
 
       addJob({
         id: jobId,
@@ -72,9 +73,10 @@ export function useGeneration() {
       });
 
       try {
-        const result = await generateImage(
+        const provider = createProvider(providerConfig);
+
+        const result = await provider.generateImage(
           {
-            modelId: selectedModel,
             prompt: fullPrompt,
             negativePrompt: fullNegative,
             width: config.width,
@@ -82,8 +84,9 @@ export function useGeneration() {
             guidanceScale: config.guidanceScale,
             steps: config.steps,
             seed: config.seed,
-            token: getStoredToken() || undefined,
             signal: abortRef.current?.signal,
+            loras: providerConfig.loras.length > 0 ? providerConfig.loras : undefined,
+            model: providerConfig.selectedModel || undefined,
           },
           (status) => {
             setGenerationStatus({
@@ -102,13 +105,13 @@ export function useGeneration() {
             width: config.width,
             height: config.height,
             prompt: fullPrompt,
-            seed: config.seed ?? -1,
+            seed: result.seed ?? config.seed ?? -1,
             timestamp: Date.now(),
           },
         });
 
         updatePanelImage(panelId, result.imageDataUrl);
-        apiLog('info', `Panel ${panelId} generated (API)`);
+        log('info', `Panel ${panelId} generated via ${providerConfig.type}`);
         return jobId;
       } catch (error) {
         if (error instanceof DOMException && error.name === 'AbortError') {
@@ -117,14 +120,15 @@ export function useGeneration() {
         }
         const errMsg = error instanceof Error ? error.message : String(error);
         updateJob(jobId, { status: 'error', error: errMsg });
-        apiLog('error', `Panel ${panelId} failed: ${errMsg}`);
+        log('error', `Panel ${panelId} failed: ${errMsg}`);
         return null;
       }
     },
-    [selectedModel, generationConfig, addJob, updateJob, updatePanelImage, setGenerationStatus, apiLog],
+    [providerConfig, generationConfig, addJob, updateJob, updatePanelImage, setGenerationStatus, buildPromptWithStyle, log],
   );
 
-  const apiGenerateAllPanels = useCallback(async () => {
+  // ---- Generate all panels sequentially ----
+  const generateAllPanels = useCallback(async () => {
     const panels = useAppStore.getState().panels;
     if (panels.length === 0) return;
 
@@ -134,10 +138,10 @@ export function useGeneration() {
       status: 'generating',
       currentPanel: 0,
       totalPanels: panels.length,
-      currentStatus: 'Starting API generation...',
+      currentStatus: `Starting generation via ${providerConfig.type}...`,
     });
 
-    apiLog('info', `Generating ${panels.length} panels via API...`);
+    log('info', `Generating ${panels.length} panels via ${providerConfig.type}...`);
 
     for (let i = 0; i < panels.length; i++) {
       const panel = panels[i];
@@ -150,7 +154,7 @@ export function useGeneration() {
         currentStatus: `Generating panel ${i + 1} of ${panels.length}...`,
       });
 
-      await apiGenerateForPanel(panel.id, panel.prompt);
+      await generateForPanel(panel.id, panel.prompt);
     }
 
     setIsGenerating(false);
@@ -160,10 +164,11 @@ export function useGeneration() {
       totalPanels: panels.length,
       currentStatus: 'Generation complete',
     });
-    apiLog('info', 'All panels processed (API)');
-  }, [apiGenerateForPanel, setIsGenerating, setGenerationStatus, apiLog]);
+    log('info', 'All panels processed');
+  }, [generateForPanel, setIsGenerating, setGenerationStatus, providerConfig.type, log]);
 
-  const apiCancelGeneration = useCallback(() => {
+  // ---- Cancel ongoing generation ----
+  const cancelGeneration = useCallback(() => {
     abortRef.current?.abort();
     abortRef.current = null;
 
@@ -181,49 +186,15 @@ export function useGeneration() {
       totalPanels: 0,
       currentStatus: 'Cancelled',
     });
-    apiLog('info', 'API generation cancelled');
-  }, [updateJob, setIsGenerating, setGenerationStatus, apiLog]);
-
-  // ============================================================
-  // Facade — delegate based on generationMode
-  // ============================================================
-
-  const isLocal = generationMode === 'local';
-
-  const generateForPanel = useCallback(
-    (panelId: string, prompt: string, negativePrompt?: string, configOverrides?: Partial<GenerationConfig>) => {
-      return isLocal
-        ? local.generateForPanel(panelId, prompt, negativePrompt, configOverrides)
-        : apiGenerateForPanel(panelId, prompt, negativePrompt, configOverrides);
-    },
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [isLocal, local, apiGenerateForPanel],
-  );
-
-  const generateAllPanels = useCallback(() => {
-    return isLocal ? local.generateAllPanels() : apiGenerateAllPanels();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isLocal, local, apiGenerateAllPanels]);
-
-  const cancelGeneration = useCallback(() => {
-    return isLocal ? local.cancelGeneration() : apiCancelGeneration();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isLocal, local, apiCancelGeneration]);
+    log('info', 'Generation cancelled');
+  }, [updateJob, setIsGenerating, setGenerationStatus, log]);
 
   return {
-    // Shared
     generateForPanel,
     generateAllPanels,
     cancelGeneration,
-    logs: isLocal ? local.logs : apiLogs,
+    logs,
     generationStatus,
-
-    // Local-specific (exposed for model-loader)
-    initWorker: local.initWorker,
-    destroyWorker: local.destroyWorker,
-    isWorkerReady: local.isWorkerReady,
-    isModelReady: local.isModelReady,
-    loadModel: local.loadModel,
-    modelStatus: local.modelStatus,
+    isProviderConnected: providerStatus.connected,
   };
 }

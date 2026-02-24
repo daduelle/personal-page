@@ -7,8 +7,7 @@ import { applyLayoutToPanels } from '@/lib/manga-layout';
 
 import { Header } from '@/components/header';
 import { Footer } from '@/components/footer';
-import { WebGPUStatus } from '@/components/webgpu-status';
-import { ModelLoader } from '@/components/model-loader';
+import { ProviderConfig } from '@/components/provider-config';
 import { UserInputForm } from '@/components/user-input-form';
 import { MangaCanvas } from '@/components/manga-canvas';
 import { GenerationView } from '@/components/generation-view';
@@ -124,9 +123,6 @@ export default function HomePage() {
 
             {/* Right: Controls */}
             <div className="order-1 space-y-6 lg:order-2">
-              {/* WebGPU Status — always visible */}
-              <WebGPUStatus />
-
               {/* Step Content */}
               <div className="animate-fade-in">
                 {currentStep === 'input' && (
@@ -176,7 +172,7 @@ export default function HomePage() {
 
                 {currentStep === 'generate' && (
                   <div className="space-y-4">
-                    <ModelLoader />
+                    <ProviderConfig />
                     <div className="manga-card transition-none hover:translate-x-0 hover:translate-y-0 hover:shadow-[2px_2px_0_0_rgba(0,0,0,1)]">
                       <GenerationView />
                     </div>

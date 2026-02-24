@@ -60,7 +60,8 @@ export interface MangaPanel {
   prompt: string;
   imageData?: ImageData;
   imageUrl?: string;
-  speechBubble?: SpeechBubble;
+  speechBubble?: SpeechBubble;   // legacy singular bubble (kept for backward compat)
+  speechBubbles?: SpeechBubble[]; // new multi-bubble support
   effects?: PanelEffect[];
   label?: string;
   zIndex?: number;
@@ -68,12 +69,15 @@ export interface MangaPanel {
 
 /** Speech bubble types and configuration */
 export interface SpeechBubble {
+  id?: string;
   text: string;
   type: 'speech' | 'thought' | 'shout' | 'narration' | 'whisper';
-  position: { x: number; y: number };
-  tailDirection?: 'bottom-left' | 'bottom-right' | 'top-left' | 'top-right';
+  position: { x: number; y: number };     // normalized 0-1 relative to panel
+  bubbleWidth?: number;                   // normalized fraction of panel width (e.g. 0.45)
+  bubbleHeight?: number;                  // normalized fraction of panel height (e.g. 0.28)
+  tailDirection?: 'bottom-left' | 'bottom-right' | 'top-left' | 'top-right' | 'none';
   fontSize?: number;
-  maxWidth?: number;
+  maxWidth?: number;                      // legacy pixel-based width (still supported)
 }
 
 /** Visual effects that can be applied to panels */
@@ -87,10 +91,7 @@ export interface PanelEffect {
 // AI Generation Configuration
 // ============================================================
 
-/** Generation mode — local (private, in-browser) or API (fast, server-side) */
-export type GenerationMode = 'local' | 'api';
-
-/** Parameters for the Stable Diffusion generation */
+/** Parameters for image generation (sent to any provider) */
 export interface GenerationConfig {
   steps: number;
   guidanceScale: number;
@@ -99,26 +100,11 @@ export interface GenerationConfig {
   seed?: number;
   style: MangaStyle;
   negativePrompt?: string;
-  strength?: number; // For img2img
+  strength?: number;
   batchSize?: number;
 }
 
-/** Available AI model (works for both local ONNX and API models) */
-export interface ModelConfig {
-  id: string;
-  name: string;
-  description: string;
-  isDefault: boolean;
-  mode: GenerationMode;
-  // Local-specific
-  size?: string;
-  // API-specific
-  defaultSteps?: number;
-  defaultCfg?: number;
-  maxResolution?: number;
-}
-
-/** Generation status for tracking API calls */
+/** Generation status for tracking active generation progress */
 export interface GenerationStatus {
   status: 'idle' | 'generating' | 'error';
   currentPanel: number;
@@ -128,36 +114,86 @@ export interface GenerationStatus {
 }
 
 // ============================================================
-// Local Model (Worker-based)
+// Provider System (BYOB — Bring Your Own Backend)
 // ============================================================
 
-/** Progress updates while downloading/loading a local model */
-export interface ModelLoadProgress {
-  status: 'idle' | 'initializing' | 'downloading' | 'loading' | 'ready' | 'error';
-  progress: number; // 0-100
-  message?: string;
-  error?: string;
-  file?: string;
-  loaded?: number;
-  total?: number;
+/** Supported image generation providers */
+export type ProviderType =
+  | 'local-sd'      // Automatic1111 / Forge / SD.Next (local server)
+  | 'openai'        // OpenAI DALL-E
+  | 'google'        // Google Gemini Image API (Nano Banana)
+  | 'stability'     // Stability AI
+  | 'replicate'     // Replicate
+  | 'huggingface';  // HuggingFace Inference API
+
+/** LoRA configuration for local SD servers */
+export interface LoraConfig {
+  name: string;
+  weight: number; // Typically 0.1 – 1.0
 }
 
-/** Messages sent TO the Stable Diffusion Web Worker */
-export type WorkerInMessage =
-  | { type: 'init' }
-  | { type: 'load-model'; modelId: string; device?: 'webgpu' | 'wasm' }
-  | { type: 'generate'; prompt: string; negativePrompt?: string; config: GenerationConfig }
-  | { type: 'cancel' };
+/** LoRA info returned from a local SD server */
+export interface LoraInfo {
+  name: string;
+  alias?: string;
+  path?: string;
+}
 
-/** Messages sent FROM the Stable Diffusion Web Worker */
-export type WorkerOutMessage =
-  | { type: 'init-complete' }
-  | { type: 'model-progress'; progress: ModelLoadProgress }
-  | { type: 'model-ready'; modelId: string }
-  | { type: 'generation-progress'; step: number; totalSteps: number; imagePreview?: string }
-  | { type: 'generation-complete'; imageDataUrl: string }
-  | { type: 'error'; error: string; context?: string }
-  | { type: 'log'; level: 'info' | 'warn' | 'error'; message: string };
+/** Full provider connection settings (persisted in store) */
+export interface ProviderConfig {
+  type: ProviderType;
+  baseUrl: string;
+  apiKey: string;
+  /** Selected checkpoint on a local SD server */
+  selectedModel: string;
+  /** Active LoRAs for local SD */
+  loras: LoraConfig[];
+}
+
+/** Live provider connection status */
+export interface ProviderStatus {
+  connected: boolean;
+  checking: boolean;
+  error?: string;
+  availableModels: string[];
+  availableLoras: LoraInfo[];
+}
+
+/** Parameters sent to a provider's generateImage method */
+export interface GenerateImageParams {
+  prompt: string;
+  negativePrompt?: string;
+  width: number;
+  height: number;
+  steps: number;
+  guidanceScale: number;
+  seed?: number;
+  signal?: AbortSignal;
+  loras?: LoraConfig[];
+  model?: string;
+}
+
+/** Result returned by a provider after generation */
+export interface GenerateImageResult {
+  imageDataUrl: string;
+  seed?: number;
+  metadata?: Record<string, unknown>;
+}
+
+/** Interface every image-generation provider must implement */
+export interface ImageProvider {
+  readonly type: ProviderType;
+  readonly displayName: string;
+
+  generateImage(
+    params: GenerateImageParams,
+    onStatus?: (msg: string) => void,
+  ): Promise<GenerateImageResult>;
+
+  checkConnection(): Promise<{ ok: boolean; error?: string }>;
+  listModels?(): Promise<string[]>;
+  listLoras?(): Promise<LoraInfo[]>;
+}
 
 // ============================================================
 // WebGPU
@@ -235,11 +271,10 @@ export interface AppState {
   generationConfig: GenerationConfig;
   jobs: GenerationJob[];
 
-  // Model / Generation Mode
-  generationMode: GenerationMode;
-  selectedModel: string;
+  // Provider (BYOB)
+  providerConfig: ProviderConfig;
+  providerStatus: ProviderStatus;
   generationStatus: GenerationStatus;
-  modelStatus: ModelLoadProgress;
 
   // WebGPU (informational)
   webgpuStatus: WebGPUStatus;

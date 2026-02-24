@@ -128,25 +128,25 @@ export function UserInputForm() {
           </div>
         </div>
 
-        {/* Bio */}
+        {/* Character Description */}
         <div className="mt-4">
           <label className="mb-1 block text-[10px] font-bold uppercase tracking-widest text-manga-gray-500">
-            Bio
+            Character Description
           </label>
           <textarea
             value={userProfile.bio}
             onChange={(e) => setUserProfile({ bio: e.target.value })}
-            placeholder="Tell us about yourself in 1-2 sentences..."
-            rows={2}
-            maxLength={200}
+            placeholder="Describe your character: appearance, personality, outfit, vibe... Can be yourself, an original character, or inspired by existing ones."
+            rows={3}
+            maxLength={400}
             className={cn(
               'w-full resize-none rounded-sm border-2 border-manga-black px-3 py-2',
               'text-sm font-medium placeholder:text-manga-gray-300',
               'focus:outline-none focus:ring-2 focus:ring-manga-blue',
             )}
           />
-          <p className="text-right text-[10px] text-manga-gray-400">
-            {userProfile.bio.length}/200
+          <p className="mt-0.5 text-[10px] text-manga-gray-400">
+            {userProfile.bio.length}/400 — Tip: describe a unique character or use yourself as the protagonist. You can reference existing characters, but the AI works best with original descriptions.
           </p>
         </div>
       </section>

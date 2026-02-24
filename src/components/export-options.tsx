@@ -115,6 +115,17 @@ export function ExportOptions() {
         </label>
       </div>
 
+      {/* Bubble editor hint */}
+      <div className="flex items-center gap-3 rounded-sm border-2 border-manga-gray-200 bg-manga-gray-100/50 px-4 py-3">
+        <span className="text-xl">💬</span>
+        <div>
+          <p className="text-xs font-bold text-manga-black">Want to edit speech bubbles?</p>
+          <p className="text-[11px] text-manga-gray-500">
+            Click the <strong>&quot;Edit Bubbles&quot;</strong> button in the bottom-right corner of the preview canvas.
+          </p>
+        </div>
+      </div>
+
       {/* Action Buttons */}
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
         {/* Preview */}

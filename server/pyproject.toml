@@ -1,0 +1,49 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "manga-readme"
+version = "0.1.0"
+description = "Local AI image-generation server for MangaREADME Generator. Powered by Diffusers."
+readme = "README.md"
+license = "MIT"
+requires-python = ">=3.10"
+authors = [{ name = "rodrigoguedes09" }]
+keywords = ["manga", "readme", "stable-diffusion", "diffusers", "ai", "image-generation"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Multimedia :: Graphics",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+]
+dependencies = [
+    "fastapi>=0.109.0",
+    "uvicorn[standard]>=0.27.0",
+    "diffusers>=0.27.0",
+    "transformers>=4.38.0",
+    "accelerate>=0.27.0",
+    "safetensors>=0.4.0",
+    "peft>=0.9.0",
+    "Pillow>=10.0.0",
+    "torch>=2.1.0",
+]
+
+[project.optional-dependencies]
+dev = ["build", "twine", "ruff"]
+
+[project.urls]
+Homepage = "https://github.com/rodrigoguedes09/personal-page"
+Repository = "https://github.com/rodrigoguedes09/personal-page"
+Issues = "https://github.com/rodrigoguedes09/personal-page/issues"
+
+[project.scripts]
+manga-readme = "manga_readme.cli:main"
+
+[tool.hatch.build.targets.wheel]
+packages = ["manga_readme"]
